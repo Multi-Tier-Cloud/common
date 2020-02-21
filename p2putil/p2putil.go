@@ -1,10 +1,12 @@
 package p2putil
 
 import (
+    "io/ioutil"
     "sort"
     "time"
 
     "github.com/libp2p/go-libp2p/p2p/protocol/ping"
+    "github.com/libp2p/go-libp2p-core/network"
     "github.com/libp2p/go-libp2p-core/peer"
 
     "github.com/multiformats/go-multiaddr"
@@ -35,4 +37,26 @@ func SortPeers(peerChan <-chan peer.AddrInfo, node p2pnode.Node) []PeerInfo {
     })
 
     return peers
+}
+
+
+func ReadMsg(stream network.Stream) (data []byte, err error) {
+	data, err = ioutil.ReadAll(stream)
+	if err != nil {
+		stream.Reset()
+		return []byte{}, err
+	}
+
+	return data, nil
+}
+
+func WriteMsg(stream network.Stream, data []byte) (err error) {
+	_, err = stream.Write(data)
+	if err != nil {
+		stream.Reset()
+		return err
+	}
+
+    stream.Close()
+	return nil
 }

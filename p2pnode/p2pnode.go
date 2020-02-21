@@ -2,6 +2,7 @@ package p2pnode
 
 import (
     "context"
+    "errors"
     "fmt"
     "sync"
 
@@ -23,21 +24,21 @@ var DefaultBootstrapPeers = []string{
 }
 
 type Config struct {
-    ListenAddrs       []string
-    BootstrapPeers    []string
-    StreamHandler     func(stream network.Stream)
-    HandlerProtocolID protocol.ID
-    Rendezvous        string
+    ListenAddrs        []string
+    BootstrapPeers     []string
+    StreamHandlers     []network.StreamHandler
+    HandlerProtocolIDs []protocol.ID
+    Rendezvous         []string
 }
 
 func NewConfig() Config {
     var config Config
 
-    config.ListenAddrs       = []string{}
-    config.BootstrapPeers    = DefaultBootstrapPeers
-    config.StreamHandler     = nil
-    config.HandlerProtocolID = ""
-    config.Rendezvous        = ""
+    config.ListenAddrs        = []string{}
+    config.BootstrapPeers     = DefaultBootstrapPeers
+    config.StreamHandlers     = []network.StreamHandler{}
+    config.HandlerProtocolIDs = []protocol.ID{}
+    config.Rendezvous         = []string{}
 
     return config
 }
@@ -46,7 +47,7 @@ type Node struct {
     Ctx                context.Context
     Host               host.Host
     DHT                *dht.IpfsDHT
-	RoutingDiscovery   *discovery.RoutingDiscovery
+    RoutingDiscovery   *discovery.RoutingDiscovery
 }
 
 func StringsToMultiaddrs(stringMultiaddrs []string) ([]multiaddr.Multiaddr, error) {
@@ -83,11 +84,23 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
         if err != nil {
             return node, err
         }
+    } else {
+        node.Host, err = libp2p.New(node.Ctx)
+        if err != nil {
+            return node, err
+        }
     }
 
-    if config.StreamHandler != nil {
-        fmt.Println("Setting stream handler")
-        node.Host.SetStreamHandler(config.HandlerProtocolID, config.StreamHandler)
+    if len(config.HandlerProtocolIDs) != len(config.StreamHandlers) {
+        return node, errors.New("StreamHandlers and HandlerProtocolIDs must map one-to-one")
+    }
+    fmt.Println("Setting stream handlers")
+    for i := range config.HandlerProtocolIDs {
+        if config.HandlerProtocolIDs[i] != "" && config.StreamHandlers[i] != nil {
+            node.Host.SetStreamHandler(config.HandlerProtocolIDs[i], config.StreamHandlers[i])
+        } else {
+            return node, errors.New("Cannot have empty StreamHandler/HandlerProtocolID element")
+        }
     }
 
     fmt.Println("Creating DHT")
@@ -122,8 +135,12 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
 
     fmt.Println("Creating Routing Discovery")
     node.RoutingDiscovery = discovery.NewRoutingDiscovery(node.DHT)
-    if config.Rendezvous != "" {
-        discovery.Advertise(node.Ctx, node.RoutingDiscovery, config.Rendezvous)
+    for _, rendezvous := range config.Rendezvous {
+        if rendezvous != "" {
+            discovery.Advertise(node.Ctx, node.RoutingDiscovery, rendezvous)
+        } else {
+            return node, errors.New("Cannot have empty Rendezvous element")
+        }
     }
 
     fmt.Println("Finished setting up libp2p Node with PID", node.Host.ID())
