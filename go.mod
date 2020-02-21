@@ -1,6 +1,6 @@
 module github.com/Multi-Tier-Cloud/common
 
-go 1.12
+go 1.13
 
 require (
 	github.com/libp2p/go-libp2p v0.5.2
