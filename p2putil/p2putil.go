@@ -1,39 +1,16 @@
 package p2putil
 
 import (
-    "errors"
-    "context"
-    "fmt"
     "sort"
-    "sync"
     "time"
 
-    "github.com/libp2p/go-libp2p"
     "github.com/libp2p/go-libp2p/p2p/protocol/ping"
-    "github.com/libp2p/go-libp2p-core/host"
-    "github.com/libp2p/go-libp2p-core/network"
     "github.com/libp2p/go-libp2p-core/peer"
-    "github.com/libp2p/go-libp2p-core/protocol"
-    "github.com/libp2p/go-libp2p-discovery"
 
-    "github.com/libp2p/go-libp2p-kad-dht"
     "github.com/multiformats/go-multiaddr"
+
+    "github.com/Multi-Tier-Cloud/common/p2pnode"
 )
-
-func StringsToMultiaddrs(stringMultiaddrs []string) ([]multiaddr.Multiaddr, error) {
-    multiaddrs := make([]multiaddr.Multiaddr, 0)
-
-    for _, s := range stringMultiaddrs {
-        ma, err := multiaddr.NewMultiaddr(s)
-        if err != nil {
-            return multiaddrs, err
-        }
-        multiaddrs = append(multiaddrs, ma)
-    }
-
-    return multiaddrs, nil
-}
-
 
 type PeerInfo struct {
     RTT   time.Duration
@@ -41,11 +18,11 @@ type PeerInfo struct {
     Addrs []multiaddr.Multiaddr
 }
 
-func SortPeers(peerChan <-chan peer.AddrInfo, Node Node) []PeerInfo {
+func SortPeers(peerChan <-chan peer.AddrInfo, node p2pnode.Node) []PeerInfo {
 	var peers []PeerInfo
 
     for p := range peerChan {
-        responseChan := ping.Ping(Node.Ctx, Node.Host, p.ID)
+        responseChan := ping.Ping(node.Ctx, node.Host, p.ID)
         result := <-responseChan
         if len(p.Addrs) == 0 || result.RTT == 0 {
             continue

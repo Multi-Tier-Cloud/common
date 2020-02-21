@@ -1,15 +1,11 @@
 package p2pnode
 
 import (
-    "errors"
     "context"
     "fmt"
-    "sort"
     "sync"
-    "time"
 
     "github.com/libp2p/go-libp2p"
-    "github.com/libp2p/go-libp2p/p2p/protocol/ping"
     "github.com/libp2p/go-libp2p-core/host"
     "github.com/libp2p/go-libp2p-core/network"
     "github.com/libp2p/go-libp2p-core/peer"
@@ -18,8 +14,6 @@ import (
 
     "github.com/libp2p/go-libp2p-kad-dht"
     "github.com/multiformats/go-multiaddr"
-
-    "github.com/Multi-Tier-Cloud/common/libp2p-common/p2putil"
 )
 
 
@@ -55,6 +49,20 @@ type Node struct {
 	RoutingDiscovery   *discovery.RoutingDiscovery
 }
 
+func StringsToMultiaddrs(stringMultiaddrs []string) ([]multiaddr.Multiaddr, error) {
+    multiaddrs := make([]multiaddr.Multiaddr, 0)
+
+    for _, s := range stringMultiaddrs {
+        ma, err := multiaddr.NewMultiaddr(s)
+        if err != nil {
+            return multiaddrs, err
+        }
+        multiaddrs = append(multiaddrs, ma)
+    }
+
+    return multiaddrs, nil
+}
+
 func NewNode(ctx context.Context, config Config) (Node, error) {
     var err error
 
@@ -65,21 +73,21 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
 
     if len(config.ListenAddrs) != 0 {
         fmt.Println("Creating Libp2p node")
-        listenAddrs, err := p2putil.StringsToMultiaddrs(config.ListenAddrs)
+        listenAddrs, err := StringsToMultiaddrs(config.ListenAddrs)
         if err != nil {
             return node, err
         }
         node.Host, err = libp2p.New(node.Ctx,
-            libp2p.ListenAddrStrings(listenAddrs...),
+            libp2p.ListenAddrs(listenAddrs...),
         )
         if err != nil {
             return node, err
         }
     }
 
-    if streamHandler != nil {
+    if config.StreamHandler != nil {
         fmt.Println("Setting stream handler")
-        handlerProtocolID = protocol.ID(config.HandlerProtocolID)
+        handlerProtocolID := protocol.ID(config.HandlerProtocolID)
         node.Host.SetStreamHandler(handlerProtocolID, config.StreamHandler)
     }
 
@@ -89,7 +97,7 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
         return node, err
     }
 
-    bootstrapPeers, err := p2putil.StringsToMultiaddrs(config.BootstrapPeers)
+    bootstrapPeers, err := StringsToMultiaddrs(config.BootstrapPeers)
     if err != nil {
         return node, err
     }
