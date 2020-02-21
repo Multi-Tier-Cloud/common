@@ -26,7 +26,7 @@ type Config struct {
     ListenAddrs       []string
     BootstrapPeers    []string
     StreamHandler     func(stream network.Stream)
-    HandlerProtocolID string
+    HandlerProtocolID protocol.ID
     Rendezvous        string
 }
 
@@ -87,8 +87,7 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
 
     if config.StreamHandler != nil {
         fmt.Println("Setting stream handler")
-        handlerProtocolID := protocol.ID(config.HandlerProtocolID)
-        node.Host.SetStreamHandler(handlerProtocolID, config.StreamHandler)
+        node.Host.SetStreamHandler(config.HandlerProtocolID, config.StreamHandler)
     }
 
     fmt.Println("Creating DHT")
