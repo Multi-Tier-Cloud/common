@@ -35,7 +35,7 @@ func PerfIndCompare(l, r PerfInd) bool {
 }
 
 // Get performance indicators and return sorted peers based on it
-func SortPeers(peerChan <-chan peer.AddrInfo, node *p2pnode.Node) []PeerInfo {
+func SortPeers(peerChan <-chan peer.AddrInfo, node p2pnode.Node) []PeerInfo {
 	var peers []PeerInfo
 
     for p := range peerChan {
