@@ -126,61 +126,67 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
         return node, err
     }
 
-    // Parse Bootstrap addresses
-    bootstrapPeers, err := StringsToMultiaddrs(config.BootstrapPeers)
-    if err != nil {
-        return node, err
-    }
-
-    numConnected := 0
-    bootstrapAttempts := 0
-
-    // Connect to bootstrap nodes
-    // Perform exponential backoff until at least one successful connection,
-    // is made, up to MaxConnAttempts attempts
-    for numConnected == 0 && bootstrapAttempts < MaxConnAttempts {
-        // Perform simple exponential backoff
-        // TODO: Move this to helper function
-        if bootstrapAttempts > 0 {
-            sleepDuration := int(math.Pow(2, float64(bootstrapAttempts)))
-            for i := 0; i < sleepDuration; i++ {
-                fmt.Printf("\rUnable to connect to any peers, retrying in %d seconds...     ", sleepDuration - i)
-                time.Sleep(time.Second)
-            }
-            fmt.Println()
+    // If bootstraps provided, ensure at least 1 must connect
+    // If none provided, no intention to connect to bootstraps, so move on
+    if len(config.BootstrapPeers) > 0 {
+        // Parse Bootstrap addresses
+        bootstrapPeers, err := StringsToMultiaddrs(config.BootstrapPeers)
+        if err != nil {
+            return node, err
         }
 
-        bootstrapAttempts++
+        numConnected := 0
+        bootstrapAttempts := 0
 
-        fmt.Println("Connecting to bootstrap nodes...")
-        var wg sync.WaitGroup
-        for _, peerAddr := range bootstrapPeers {
-            peerinfo, _ := peer.AddrInfoFromP2pAddr(peerAddr)
-            wg.Add(1)
-            go func() {
-                defer wg.Done()
-                if err := node.Host.Connect(node.Ctx, *peerinfo); err != nil {
-                    fmt.Println(err)
-                } else {
-                    fmt.Println("Connected to bootstrap node:", *peerinfo)
+        // Connect to bootstrap nodes
+        // Perform exponential backoff until at least one successful connection,
+        // is made, up to MaxConnAttempts attempts
+        for numConnected == 0 && bootstrapAttempts < MaxConnAttempts {
+            // Perform simple exponential backoff
+            // TODO: Move this to helper function
+            if bootstrapAttempts > 0 {
+                sleepDuration := int(math.Pow(2, float64(bootstrapAttempts)))
+                for i := 0; i < sleepDuration; i++ {
+                    fmt.Printf("\rUnable to connect to any peers, retrying in %d seconds...     ", sleepDuration - i)
+                    time.Sleep(time.Second)
                 }
-            }()
-        }
-        wg.Wait()
+                fmt.Println()
+            }
 
-        // Count only connections whose internal state is Connected
-        for _, peerID := range node.Host.Network().Peers() {
-            if node.Host.Network().Connectedness(peerID) == network.Connected {
-                numConnected++
+            bootstrapAttempts++
+
+            fmt.Println("Connecting to bootstrap nodes...")
+            var wg sync.WaitGroup
+            for _, peerAddr := range bootstrapPeers {
+                peerinfo, _ := peer.AddrInfoFromP2pAddr(peerAddr)
+                wg.Add(1)
+                go func() {
+                    defer wg.Done()
+                    if err := node.Host.Connect(node.Ctx, *peerinfo); err != nil {
+                        fmt.Println(err)
+                    } else {
+                        fmt.Println("Connected to bootstrap node:", *peerinfo)
+                    }
+                }()
+            }
+            wg.Wait()
+
+            // Count only connections whose internal state is Connected
+            for _, peerID := range node.Host.Network().Peers() {
+                if node.Host.Network().Connectedness(peerID) == network.Connected {
+                    numConnected++
+                }
             }
         }
-    }
 
-    if numConnected == 0 {
-        return node, errors.New("Failed to connect to any bootstraps")
-    }
+        if numConnected == 0 {
+            return node, errors.New("Failed to connect to any bootstraps")
+        }
 
-    fmt.Println("Connected to", numConnected, "peers!")
+        fmt.Println("Connected to", numConnected, "peers!")
+    } else {
+        fmt.Println("No bootstraps provided, not connecting to any peers")
+    }
 
     if err = node.DHT.Bootstrap(node.Ctx); err != nil {
         return node, err
