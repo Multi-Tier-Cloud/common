@@ -152,7 +152,7 @@ func LoadPrivKeyFromFile(keyFile string) (crypto.PrivKey, error) {
 	}
 
 	// Strip new-line, then parse key type from key itself
-	contentStr := string(content[:len(content)-1])
+	contentStr := strings.TrimSpace(string(content))
 	spaceIdx := strings.IndexByte(contentStr, ' ')
 	if spaceIdx <= 0 {
 		return nil, fmt.Errorf("Unable to load key file (may have been corrupted)")
