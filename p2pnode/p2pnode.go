@@ -9,6 +9,7 @@ import (
     "time"
 
     "github.com/libp2p/go-libp2p"
+    "github.com/libp2p/go-libp2p-core/crypto"
     "github.com/libp2p/go-libp2p-core/host"
     "github.com/libp2p/go-libp2p-core/network"
     "github.com/libp2p/go-libp2p-core/peer"
@@ -29,6 +30,7 @@ var DefaultBootstrapPeers = []string{
 // Config is a structure for passing arguments
 // into Node constructor NewNode
 type Config struct {
+    PrivKey            crypto.PrivKey
     ListenAddrs        []string
     BootstrapPeers     []string
     StreamHandlers     []network.StreamHandler
@@ -85,25 +87,26 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
     var node Node
 
     node.Ctx = ctx
+    nodeOpts := []libp2p.Option{}
 
-    // Create a libp2p Host instance
+    if (config.PrivKey != nil) {
+        nodeOpts = append(nodeOpts, libp2p.Identity(config.PrivKey))
+    }
+
     if len(config.ListenAddrs) != 0 {
-        fmt.Println("Creating Libp2p host")
         listenAddrs, err := StringsToMultiaddrs(config.ListenAddrs)
         if err != nil {
             return node, err
         }
-        node.Host, err = libp2p.New(node.Ctx,
-            libp2p.ListenAddrs(listenAddrs...),
-        )
-        if err != nil {
-            return node, err
-        }
-    } else {
-        node.Host, err = libp2p.New(node.Ctx)
-        if err != nil {
-            return node, err
-        }
+
+        nodeOpts = append(nodeOpts, libp2p.ListenAddrs(listenAddrs...))
+    }
+
+    // Create a libp2p Host instance
+    fmt.Println("Creating new p2p host")
+    node.Host, err = libp2p.New(node.Ctx, nodeOpts...)
+    if err != nil {
+        return node, err
     }
 
     // Register Stream Handlers and corresponding Protocol IDs
