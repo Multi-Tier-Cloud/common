@@ -1,13 +1,14 @@
 package p2putil
 
 import (
+    "context"
     "io/ioutil"
     "sort"
     "time"
 
-    "github.com/libp2p/go-libp2p/p2p/protocol/ping"
     "github.com/libp2p/go-libp2p-core/network"
     "github.com/libp2p/go-libp2p-core/peer"
+    "github.com/libp2p/go-libp2p/p2p/protocol/ping"
 
     "github.com/Multi-Tier-Cloud/common/p2pnode"
 )
@@ -36,16 +37,23 @@ func PerfIndCompare(l, r PerfInd) bool {
 
 // Get performance indicators and return sorted peers based on it
 func SortPeers(peerChan <-chan peer.AddrInfo, node p2pnode.Node) []PeerInfo {
-	var peers []PeerInfo
+    var peers []PeerInfo
 
+    // Set context with 1 second timeout for ping results for *all* peers.
+    //
+    // TODO: Move towards long-term solution to query a database for peer
+    //       latency info, or some type of cache-like datastructure that's
+    //       automatically updated, so we don't have to explicitly ping.
+    ctx, cancel := context.WithTimeout(node.Ctx, time.Second)
     for p := range peerChan {
-        responseChan := ping.Ping(node.Ctx, node.Host, p.ID)
+        responseChan := ping.Ping(ctx, node.Host, p.ID)
         result := <-responseChan
         if len(p.Addrs) == 0 || result.RTT == 0 {
             continue
         }
         peers = append(peers, PeerInfo{Perf: PerfInd{RTT: result.RTT}, ID: p.ID})
-	}
+    }
+    cancel()
 
     sort.Slice(peers, func(i, j int) bool {
         return PerfIndCompare(peers[i].Perf, peers[j].Perf)
@@ -56,23 +64,23 @@ func SortPeers(peerChan <-chan peer.AddrInfo, node p2pnode.Node) []PeerInfo {
 
 // Read from stream
 func ReadMsg(stream network.Stream) (data []byte, err error) {
-	data, err = ioutil.ReadAll(stream)
-	if err != nil {
-		stream.Reset()
-		return []byte{}, err
-	}
+    data, err = ioutil.ReadAll(stream)
+    if err != nil {
+        stream.Reset()
+        return []byte{}, err
+    }
 
-	return data, nil
+    return data, nil
 }
 
 // Write to stream
 func WriteMsg(stream network.Stream, data []byte) (err error) {
-	_, err = stream.Write(data)
-	if err != nil {
-		stream.Reset()
-		return err
-	}
+    _, err = stream.Write(data)
+    if err != nil {
+        stream.Reset()
+        return err
+    }
 
     stream.Close()
-	return nil
+    return nil
 }
