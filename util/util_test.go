@@ -13,6 +13,9 @@ import (
 	"github.com/Multi-Tier-Cloud/common/util"
 )
 
+// Creates a temp file for testing purposes.
+// User should take care to delete the file before the test ends.
+// Returns the system path to the file and an error if it exists.
 func createTempFile() (string, error) {
 	tmpFile, err := ioutil.TempFile("/tmp", "tmp")
 	if err != nil {
@@ -155,4 +158,77 @@ func TestLoadKey(test *testing.T) {
 		test.Fatalf("Loaded key is not identical to test key.\n"+
 			"Loaded: %s\nExpect: %s\n", loadedKeyB64, keyB64)
 	}
+}
+
+func TestKeyFlags(test *testing.T) {
+	// Get a random file name... ensure it actually doesn't exist
+	tmpFile, err := createTempFile()
+	if err != nil {
+		panic(err)
+	}
+	os.Remove(tmpFile)
+
+	// Test adding flags
+	keyFlags, err := util.AddKeyFlags(tmpFile)
+	if err != nil {
+		test.Fatalf("AddKeyFlags() failed:\n%v", err)
+	}
+
+	if keyFlags.Algo == nil || keyFlags.Bits == nil ||
+		keyFlags.Keyfile == nil || keyFlags.Ephemeral == nil {
+
+		test.Fatalf("Returned KeyFlags structure contains nil pointers")
+	}
+}
+
+func TestCreateOrLoadKey(test *testing.T) {
+	keyFlags := util.KeyFlags{}
+
+	test.Run("EmptyKeyFlags", func(test *testing.T) {
+		_, err := util.CreateOrLoadKey(keyFlags)
+		if err == nil {
+			test.Fatalf("CreateOrLoadKey() passed with empty KeyFlags; Expected it to fail.")
+		}
+	})
+
+	var algo string
+	var bits int
+	var keyfile string
+	var ephemeral bool
+
+	keyFlags.Algo = &algo
+	keyFlags.Bits = &bits
+	keyFlags.Keyfile = &keyfile
+	keyFlags.Ephemeral = &ephemeral
+
+	test.Run("ZeroValFlags", func(test *testing.T) {
+		_, err := util.CreateOrLoadKey(keyFlags)
+		if err == nil {
+			test.Fatalf("CreateOrLoadKey() passed with zero-valued KeyFlags variables; Expected it to fail.")
+		}
+	})
+
+	algo = "rsa"
+	bits = 2048
+	keyfile, err := createTempFile() // Get random path for non-existent file
+	if err != nil {
+		panic(err)
+	}
+	os.Remove(keyfile)
+
+	test.Run("ProperKeyFlags", func(test *testing.T) {
+		priv, err := util.CreateOrLoadKey(keyFlags)
+		if err != nil {
+			test.Logf("CreateOrLoadKey() failed; Expected it to pass.\n%v", err)
+			test.Logf("\tkeyFlags.Algo = %s\n", algo)
+			test.Logf("\tkeyFlags.Bits = %d\n", bits)
+			test.Logf("\tkeyFlags.Keyfile = %s\n", keyfile)
+			test.Logf("\tkeyFlags.Ephemeral = %t\n", ephemeral)
+			test.FailNow()
+		}
+
+		if priv == nil {
+			test.Errorf("CreateOrLoadKey() returned a nil private key")
+		}
+	})
 }
