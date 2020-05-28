@@ -45,7 +45,7 @@ const (
 )
 
 func TestAddBootstrapFlags(test *testing.T) {
-    // Test calling AddBootstrapFlags() multiple times
+	// Test calling AddBootstrapFlags() multiple times
 	bootstraps, err := util.AddBootstrapFlags()
 	if err != nil {
 		test.Fatalf("ERROR: Unable to add bootstrap flags")
@@ -60,50 +60,54 @@ func TestAddBootstrapFlags(test *testing.T) {
 		test.Fatalf("ERROR: Subsequent calls to AddBootstrapFlags() returned " +
 			"different values. They should be the same.")
 	}
+}
 
-    // Test setting a bad address
-	err = bootstraps.Set(testBadAddr)
+func TestBootstrapSetString(test *testing.T) {
+	bootstraps := util.GetBootstrapPointer()
+
+	// Test setting a bad address
+	err := bootstraps.Set(testBadAddr)
 	if err == nil {
 		test.Fatalf("ERROR: Sucecssfully set bad address (%s) for bootstrap. "+
 			"Expected it to fail", testBadAddr)
 	}
 
-    // Test setting a proper address
+	// Test setting a proper address
 	err = bootstraps.Set(testMultiAddr1)
-    if err != nil {
-        test.Fatalf("ERROR: Setting address (%s) failed.", testMultiAddr1)
-    }
+	if err != nil {
+		test.Fatalf("ERROR: Setting address (%s) failed.", testMultiAddr1)
+	}
 
-    if len(*bootstraps) != 1 {
-        test.Fatalf("ERROR: Set address (%s), but it did not get added to the list of addresses.", testMultiAddr1)
-    }
+	if len(*bootstraps) != 1 {
+		test.Fatalf("ERROR: Set address (%s), but it did not get added to the list of addresses.", testMultiAddr1)
+	}
 
-    // Test setting the same address again.
+	// Test setting the same address again.
 	err = bootstraps.Set(testMultiAddr1)
-    if err != nil {
-        test.Fatalf("ERROR: Setting the same address (%s) failed.\n" +
-            "Expected setting duplicate addresses to succeed (idempotent).", testMultiAddr1)
-    }
+	if err != nil {
+		test.Fatalf("ERROR: Setting the same address (%s) failed.\n"+
+			"Expected setting duplicate addresses to succeed (idempotent).", testMultiAddr1)
+	}
 
-    if len(*bootstraps) != 1 {
-        test.Fatalf("ERROR: Set address (%s) a second time and the list of " +
-            "addresses appears to have changed.", testMultiAddr1)
-    }
+	if len(*bootstraps) != 1 {
+		test.Fatalf("ERROR: Set address (%s) a second time and the list of "+
+			"addresses appears to have changed.", testMultiAddr1)
+	}
 
 	err = bootstraps.Set(testMultiAddr2)
-    if err != nil {
-        test.Fatalf("ERROR: Setting address (%s) failed.", testMultiAddr2)
-    }
+	if err != nil {
+		test.Fatalf("ERROR: Setting address (%s) failed.", testMultiAddr2)
+	}
 
-    if len(*bootstraps) != 2 {
-        test.Fatalf("ERROR: Added new address (%s), the list of addresses " +
-            "should have increased.", testMultiAddr2)
-    }
+	if len(*bootstraps) != 2 {
+		test.Fatalf("ERROR: Added new address (%s), the list of addresses "+
+			"should have increased.", testMultiAddr2)
+	}
 
-    // Test printing works
-    printTest := bootstraps.String()
-    if len(printTest) <= 2 {
-        test.Fatalf("ERROR: Expected String() to print the list of bootstrap nodes set." +
-            "Received a string length of (%d), was expected > 2.", len(printTest))
-    }
+	// Test printing works
+	printTest := bootstraps.String()
+	if len(printTest) <= 2 {
+		test.Fatalf("ERROR: Expected String() to print the list of bootstrap nodes set."+
+			"Received a string length of (%d), was expected > 2.", len(printTest))
+	}
 }

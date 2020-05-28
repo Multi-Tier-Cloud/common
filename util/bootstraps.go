@@ -21,6 +21,9 @@ import (
 	"github.com/multiformats/go-multiaddr"
 )
 
+// Need to define custom type to implement flag's Value interface.
+// Don't want to expose it outside the package as it'll be redundant and
+// possibly reduce readability and comprehension of the underlying type.
 type bootstrapAddrs []multiaddr.Multiaddr
 
 var (
@@ -53,10 +56,17 @@ func (addrs *bootstrapAddrs) Set(val string) error {
 	return nil
 }
 
+// Don't like this... feels hacky to have a function just for tests in the main package
+// This is needed to return a pointer to type bootstrapAddrs, a hidden type.
+// This enables tests for the Set() and String() functions above.
+func GetBootstrapPointer() *bootstrapAddrs {
+	return &bootstraps
+}
+
 // Returns address to a slice of strings that will store the bootstrap
 // multiaddresses once flag.Parse() is called (prior to that, it will
 // be an empty slice).
-func AddBootstrapFlags() (*bootstrapAddrs, error) {
+func AddBootstrapFlags() (*[]multiaddr.Multiaddr, error) {
 	if !bootstrapsFlagLoaded {
 		flag.Var(&bootstraps, "bootstrap",
 			"Multiaddress of a bootstrap node.\n"+
@@ -65,5 +75,6 @@ func AddBootstrapFlags() (*bootstrapAddrs, error) {
 		bootstrapsFlagLoaded = true
 	}
 
-	return &bootstraps, nil
+	// Cast and return
+	return (*[]multiaddr.Multiaddr)(&bootstraps), nil
 }
