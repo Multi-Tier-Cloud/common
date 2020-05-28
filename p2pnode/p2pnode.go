@@ -35,18 +35,12 @@ import (
 )
 
 
-// TODO: Move this to bootstrap at some point
-var DefaultBootstrapPeers = []string{
-    "/ip4/10.11.17.15/tcp/4001/ipfs/QmeZvvPZgrpgSLFyTYwCUEbyK6Ks8Cjm2GGrP2PA78zjAk",
-    "/ip4/10.11.17.32/tcp/4001/ipfs/12D3KooWGegi4bWDPw9f6x2mZ6zxtsjR8w4ax1tEMDKCNqdYBt7X",
-}
-
 // Config is a structure for passing arguments
 // into Node constructor NewNode
 type Config struct {
     PrivKey            crypto.PrivKey
     ListenAddrs        []string
-    BootstrapPeers     []string
+    BootstrapPeers     []multiaddr.Multiaddr
     StreamHandlers     []network.StreamHandler
     HandlerProtocolIDs []protocol.ID
     Rendezvous         []string
@@ -57,7 +51,7 @@ func NewConfig() Config {
     var config Config
 
     config.ListenAddrs        = []string{}
-    config.BootstrapPeers     = DefaultBootstrapPeers
+    config.BootstrapPeers     = []multiaddr.Multiaddr{}
     config.StreamHandlers     = []network.StreamHandler{}
     config.HandlerProtocolIDs = []protocol.ID{}
     config.Rendezvous         = []string{}
@@ -146,12 +140,6 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
     // If bootstraps provided, ensure at least 1 must connect
     // If none provided, no intention to connect to bootstraps, so move on
     if len(config.BootstrapPeers) > 0 {
-        // Parse Bootstrap addresses
-        bootstrapPeers, err := StringsToMultiaddrs(config.BootstrapPeers)
-        if err != nil {
-            return node, err
-        }
-
         numConnected := 0
         bootstrapAttempts := 0
 
@@ -174,7 +162,7 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
 
             fmt.Println("Connecting to bootstrap nodes...")
             var wg sync.WaitGroup
-            for _, peerAddr := range bootstrapPeers {
+            for _, peerAddr := range config.BootstrapPeers {
                 peerinfo, _ := peer.AddrInfoFromP2pAddr(peerAddr)
                 wg.Add(1)
                 go func() {
