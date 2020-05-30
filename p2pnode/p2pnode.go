@@ -109,6 +109,7 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
 
     // Set pre-sharked key (for private network) if it exists
     if (config.PSK != nil) {
+        fmt.Println("Pre-shared key detected, node will belong to a private network")
         nodeOpts = append(nodeOpts, libp2p.PrivateNetwork(config.PSK))
     }
 

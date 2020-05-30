@@ -100,11 +100,11 @@ func (pskVal *pskValue) Set(s string) error {
 func AddPSKFlag() (*pnet.PSK, error) {
 	if !pskFlagLoaded {
 		flag.Var(&psk, "psk",
-			"Passphrase used to create a pre-shared key (PSK) used amongst nodes "+
-				"to form a private network. The passphrase provided here will not be "+
-				"stored in memory. It is HIGHLY RECOMMENDED you use a passphrase you "+
-				"can easily memorize, or write it down somewhere safe. If you forget "+
-				"the passphrase, you will be unable to join new nodes/services to "+
+			"Passphrase used to create a pre-shared key (PSK) used amongst nodes\n"+
+				"to form a private network. The passphrase provided here will not be\n"+
+				"stored in memory. It is HIGHLY RECOMMENDED you use a passphrase you\n"+
+				"can easily memorize, or write it down somewhere safe. If you forget\n"+
+				"the passphrase, you will be unable to join new nodes/services to\n"+
 				"the same network.")
 
 		pskFlagLoaded = true
