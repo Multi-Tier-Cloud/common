@@ -30,7 +30,7 @@ var (
 	// Stores the bootstrap multiaddrs
 	bootstraps bootstrapAddrs
 
-	// Used to avoid re-defining 'bootstraps' if AddbootstrapAddrs() is
+	// Used to avoid re-defining 'bootstraps' if AddBootstrapFlags() is
 	// called multiple times. After the first call, it should simply
 	// return the slice of bootstrap addresses.
 	bootstrapsFlagLoaded = false
