@@ -27,6 +27,7 @@ import (
     "github.com/libp2p/go-libp2p-core/host"
     "github.com/libp2p/go-libp2p-core/network"
     "github.com/libp2p/go-libp2p-core/peer"
+    "github.com/libp2p/go-libp2p-core/pnet"
     "github.com/libp2p/go-libp2p-core/protocol"
     "github.com/libp2p/go-libp2p-discovery"
 
@@ -44,18 +45,12 @@ type Config struct {
     StreamHandlers     []network.StreamHandler
     HandlerProtocolIDs []protocol.ID
     Rendezvous         []string
+    PSK                pnet.PSK
 }
 
 // Config constructor that returns default configuration
 func NewConfig() Config {
     var config Config
-
-    config.ListenAddrs        = []string{}
-    config.BootstrapPeers     = []multiaddr.Multiaddr{}
-    config.StreamHandlers     = []network.StreamHandler{}
-    config.HandlerProtocolIDs = []protocol.ID{}
-    config.Rendezvous         = []string{}
-
     return config
 }
 
@@ -97,10 +92,12 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
     node.Ctx = ctx
     nodeOpts := []libp2p.Option{}
 
+    // Set private key (for identity) if it exists
     if (config.PrivKey != nil) {
         nodeOpts = append(nodeOpts, libp2p.Identity(config.PrivKey))
     }
 
+    // Set listen addresses if they exist
     if len(config.ListenAddrs) != 0 {
         listenAddrs, err := StringsToMultiaddrs(config.ListenAddrs)
         if err != nil {
@@ -108,6 +105,11 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
         }
 
         nodeOpts = append(nodeOpts, libp2p.ListenAddrs(listenAddrs...))
+    }
+
+    // Set pre-sharked key (for private network) if it exists
+    if (config.PSK != nil) {
+        nodeOpts = append(nodeOpts, libp2p.PrivateNetwork(config.PSK))
     }
 
     // Create a libp2p Host instance
