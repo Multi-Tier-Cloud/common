@@ -82,6 +82,15 @@ const (
     MaxConnAttempts = 5
 )
 
+func (node *Node) Advertise(rendezvous string) error {
+    if rendezvous != "" {
+        discovery.Advertise(node.Ctx, node.RoutingDiscovery, rendezvous)
+    } else {
+        return errors.New("Cannot have empty Rendezvous string")
+    }
+    return nil
+}
+
 // Node constructor
 func NewNode(ctx context.Context, config Config) (Node, error) {
     var err error
