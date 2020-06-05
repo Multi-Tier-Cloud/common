@@ -19,6 +19,7 @@ import (
 	"flag"
 	"fmt"
 	"golang.org/x/crypto/sha3"
+	"os"
 
 	"github.com/libp2p/go-libp2p-core/pnet"
 )
@@ -28,8 +29,12 @@ import (
 // possibly reduce readability and comprehension of the underlying type.
 type pskValue pnet.PSK
 
-// libp2p's PSK definition is a slice of 32 bytes
-const PSK_NUM_BYTES = 32
+const (
+	// libp2p's PSK definition is a slice of 32 bytes
+	PSK_NUM_BYTES = 32
+
+	ENV_KEY_PSK = "P2P_PSK"
+)
 
 var (
 	// Stores the bootstrap multiaddrs
@@ -119,4 +124,23 @@ func AddPSKFlag() (*pnet.PSK, error) {
 // This enables tests for the Set() and String() functions above.
 func GetPSKPointer() *pskValue {
 	return &psk
+}
+
+// If the environment variable does not exist, or if there are errors during
+// parsing, return the 0-value of the return type.
+func GetEnvPSK() (pnet.PSK, error) {
+	envStr := os.Getenv(ENV_KEY_PSK)
+	if envStr == "" {
+		return pnet.PSK{}, nil
+	}
+
+	pnetPsk, err := CreatePSK(envStr)
+	if err != nil {
+		err = fmt.Errorf("ERROR: Unable to parse environment variable %s.\n%w",
+			ENV_KEY_PSK, err)
+
+		return pnet.PSK{}, err
+	}
+
+	return pnetPsk, nil
 }

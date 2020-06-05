@@ -17,6 +17,8 @@ package util
 import (
 	"flag"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/multiformats/go-multiaddr"
 )
@@ -25,6 +27,8 @@ import (
 // Don't want to expose it outside the package as it'll be redundant and
 // possibly reduce readability and comprehension of the underlying type.
 type bootstrapAddrs []multiaddr.Multiaddr
+
+const ENV_KEY_BOOTSTRAPS = "P2P_BOOTSTRAPS"
 
 var (
 	// Stores the bootstrap multiaddrs
@@ -77,4 +81,23 @@ func AddBootstrapFlags() (*[]multiaddr.Multiaddr, error) {
 
 	// Cast and return
 	return (*[]multiaddr.Multiaddr)(&bootstraps), nil
+}
+
+// If the environment variable does not exist, or if there are errors during
+// parsing, return the 0-value of the return type.
+func GetEnvBootstraps() ([]multiaddr.Multiaddr, error) {
+	envStr := os.Getenv(ENV_KEY_BOOTSTRAPS)
+	if envStr == "" {
+		return []multiaddr.Multiaddr{}, nil
+	}
+
+	bootstraps, err := StringsToMultiaddrs(strings.Fields(envStr))
+	if err != nil {
+		err = fmt.Errorf("ERROR: Unable to parse environment variable %s.\n%w",
+			ENV_KEY_BOOTSTRAPS, err)
+
+		return []multiaddr.Multiaddr{}, err
+	}
+
+	return bootstraps, nil
 }

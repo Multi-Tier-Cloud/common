@@ -18,6 +18,8 @@ import (
 	"net"
 	"os"
 	"strings"
+
+	"github.com/multiformats/go-multiaddr"
 )
 
 // Get preferred outbound ip on machine
@@ -76,3 +78,17 @@ func FileExists(filePath string) bool {
 	return true
 }
 
+// Helper function to cast a slice of strings into a slice of Multiaddrs
+func StringsToMultiaddrs(stringMultiaddrs []string) ([]multiaddr.Multiaddr, error) {
+	multiaddrs := make([]multiaddr.Multiaddr, 0)
+
+	for _, s := range stringMultiaddrs {
+		ma, err := multiaddr.NewMultiaddr(s)
+		if err != nil {
+			return multiaddrs, err
+		}
+		multiaddrs = append(multiaddrs, ma)
+	}
+
+	return multiaddrs, nil
+}
