@@ -63,10 +63,14 @@ type Node struct {
     Host               host.Host
     DHT                *dht.IpfsDHT
     RoutingDiscovery   *discovery.RoutingDiscovery
+    NetworkCallbacks   *network.NotifyBundle
 }
 
 const (
     MaxConnAttempts = 5
+
+    // 512 seconds = 8 mins 32 secs
+    MaxBackoffSecs = 512
 )
 
 func (node *Node) Advertise(rendezvous string) error {
@@ -76,6 +80,69 @@ func (node *Node) Advertise(rendezvous string) error {
         return errors.New("Cannot have empty Rendezvous string")
     }
     return nil
+}
+
+// Given a set of high-value peers, always try to reconnect to them if they
+// are disconnected.
+//
+// Returns a callback function for peer disconnection events
+func ReconnectCB(ctx context.Context, p2pHost host.Host,
+        vipPeers []multiaddr.Multiaddr) func(network.Network, network.Conn) {
+
+    return func(net network.Network, conn network.Conn) {
+        var err error
+        var addrInfo *peer.AddrInfo
+        isBootstrap := false
+        for _, peerAddr := range vipPeers {
+            addrInfo, err = peer.AddrInfoFromP2pAddr(peerAddr)
+            if err != nil {
+                fmt.Printf("ERROR: Unable to parse AddrInfo from %s\n%w\n", peerAddr, err)
+                continue
+            }
+
+            if conn.RemotePeer() == addrInfo.ID {
+                isBootstrap = true
+                break
+            }
+        }
+
+        if !isBootstrap {
+            return
+        }
+
+        fmt.Printf("Connection to %s lost, attempting to reconnect...\n", conn.RemotePeer())
+
+        // The disconnecting peer is a bootstrap, attempt reconnect
+        // Perform exponential backoff until MaxBackoffSecs, then continue trying
+        // forever once every MaxBackoffSecs until success.
+        connAttempts := 0
+        sleepDuration := 0
+
+        //for numConnected == 0 && bootstrapAttempts < MaxConnAttempts {
+        for net.Connectedness(conn.RemotePeer()) != network.Connected {
+            // Perform simple exponential backoff
+            // TODO: Move this to helper function
+            if connAttempts > 0 {
+                sleepDuration = int(math.Pow(2, float64(connAttempts)))
+                fmt.Printf("Reconnection to %s failed. Will attempt again in %d seconds...\n",
+                    conn.RemotePeer(), sleepDuration)
+
+                time.Sleep(time.Duration(sleepDuration) * time.Second)
+            }
+
+            if err := p2pHost.Connect(ctx, *addrInfo); err != nil {
+                fmt.Println(err)
+            } else {
+                fmt.Println("Reconnected to node:", addrInfo)
+            }
+
+            // connAttempts used to calculate sleep duration
+            // Avoid incrementing when exceeding MaxBackoffSecs
+            if sleepDuration < MaxBackoffSecs {
+                connAttempts++
+            }
+        }
+    }
 }
 
 // Node constructor
@@ -162,16 +229,20 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
             fmt.Println("Connecting to bootstrap nodes...")
             var wg sync.WaitGroup
             for _, peerAddr := range config.BootstrapPeers {
-                peerinfo, _ := peer.AddrInfoFromP2pAddr(peerAddr)
+                peerinfo, err := peer.AddrInfoFromP2pAddr(peerAddr)
+                if err != nil {
+                    return node, fmt.Errorf("ERROR: Unable to parse AddrInfo from %s\n%w\n", peerAddr, err)
+                }
+
                 wg.Add(1)
-                go func() {
+                go func(addr peer.AddrInfo) {
                     defer wg.Done()
-                    if err := node.Host.Connect(node.Ctx, *peerinfo); err != nil {
+                    if err := node.Host.Connect(node.Ctx, addr); err != nil {
                         fmt.Println(err)
                     } else {
-                        fmt.Println("Connected to bootstrap node:", *peerinfo)
+                        fmt.Println("Connected to bootstrap node:", addr)
                     }
-                }()
+                }(*peerinfo)
             }
             wg.Wait()
 
@@ -195,6 +266,15 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
     if err = node.DHT.Bootstrap(node.Ctx); err != nil {
         return node, err
     }
+
+    // Create and register network callbacks. Use a disconnection notifier
+    // to monitor when bootstraps disconnect, and attempt to reconnect.
+    // Users can override or add any other callbacks they want, either
+    // directly to the NotifyBundle created here, or register their own.
+    netCBs := network.NotifyBundle{}
+    netCBs.DisconnectedF = ReconnectCB(node.Ctx, node.Host, config.BootstrapPeers)
+    node.NetworkCallbacks = &netCBs
+    node.Host.Network().Notify(node.NetworkCallbacks)
 
     // Create a libp2p Routing Discovery instance
     fmt.Println("Creating Routing Discovery")
