@@ -30,9 +30,11 @@ import (
     "github.com/libp2p/go-libp2p-core/pnet"
     "github.com/libp2p/go-libp2p-core/protocol"
     "github.com/libp2p/go-libp2p-discovery"
-
     "github.com/libp2p/go-libp2p-kad-dht"
+
     "github.com/multiformats/go-multiaddr"
+
+    "github.com/Multi-Tier-Cloud/common/util"
 )
 
 
@@ -61,21 +63,6 @@ type Node struct {
     Host               host.Host
     DHT                *dht.IpfsDHT
     RoutingDiscovery   *discovery.RoutingDiscovery
-}
-
-// Helper function to cast a slice of strings into a slice of Multiaddrs
-func StringsToMultiaddrs(stringMultiaddrs []string) ([]multiaddr.Multiaddr, error) {
-    multiaddrs := make([]multiaddr.Multiaddr, 0)
-
-    for _, s := range stringMultiaddrs {
-        ma, err := multiaddr.NewMultiaddr(s)
-        if err != nil {
-            return multiaddrs, err
-        }
-        multiaddrs = append(multiaddrs, ma)
-    }
-
-    return multiaddrs, nil
 }
 
 const (
@@ -108,7 +95,7 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
 
     // Set listen addresses if they exist
     if len(config.ListenAddrs) != 0 {
-        listenAddrs, err := StringsToMultiaddrs(config.ListenAddrs)
+        listenAddrs, err := util.StringsToMultiaddrs(config.ListenAddrs)
         if err != nil {
             return node, err
         }
