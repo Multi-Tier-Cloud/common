@@ -18,6 +18,7 @@ import (
     "context"
     "errors"
     "fmt"
+    "log"
     "math"
     "sync"
     "time"
@@ -37,6 +38,9 @@ import (
     "github.com/Multi-Tier-Cloud/common/util"
 )
 
+func init() {
+    log.SetFlags(log.Ldate | log.Lmicroseconds | log.Lshortfile)
+}
 
 // Config is a structure for passing arguments
 // into Node constructor NewNode
@@ -96,7 +100,7 @@ func ReconnectCB(ctx context.Context, p2pHost host.Host,
         for _, peerAddr := range vipPeers {
             addrInfo, err = peer.AddrInfoFromP2pAddr(peerAddr)
             if err != nil {
-                fmt.Printf("ERROR: Unable to parse AddrInfo from %s\n%w\n", peerAddr, err)
+                log.Printf("ERROR: Unable to parse AddrInfo from %s\n%w\n", peerAddr, err)
                 continue
             }
 
@@ -110,7 +114,7 @@ func ReconnectCB(ctx context.Context, p2pHost host.Host,
             return
         }
 
-        fmt.Printf("Connection to %s lost, attempting to reconnect...\n", conn.RemotePeer())
+        log.Printf("Connection to %s lost, attempting to reconnect...\n", conn.RemotePeer())
 
         // The disconnecting peer is a bootstrap, attempt reconnect
         // Perform exponential backoff until MaxBackoffSecs, then continue trying
@@ -124,16 +128,18 @@ func ReconnectCB(ctx context.Context, p2pHost host.Host,
             // TODO: Move this to helper function
             if connAttempts > 0 {
                 sleepDuration = int(math.Pow(2, float64(connAttempts)))
-                fmt.Printf("Reconnection to %s failed. Will attempt again in %d seconds...\n",
-                    conn.RemotePeer(), sleepDuration)
-
-                time.Sleep(time.Duration(sleepDuration) * time.Second)
+                log.Printf("Reconnection to %s failed.\n", conn.RemotePeer())
+				for i := 0; i < sleepDuration; i++ {
+                    fmt.Printf("\rRetrying again in %d seconds...     ", sleepDuration - i)
+                    time.Sleep(time.Second)
+                }
+                fmt.Println()
             }
 
             if err := p2pHost.Connect(ctx, *addrInfo); err != nil {
-                fmt.Println(err)
+                log.Println(err)
             } else {
-                fmt.Println("Reconnected to node:", addrInfo)
+                log.Println("Reconnected to node:", addrInfo)
             }
 
             // connAttempts used to calculate sleep duration
@@ -172,12 +178,12 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
 
     // Set pre-sharked key (for private network) if it exists
     if (config.PSK != nil) {
-        fmt.Println("Pre-shared key detected, node will belong to a private network")
+        log.Println("Pre-shared key detected, node will belong to a private network")
         nodeOpts = append(nodeOpts, libp2p.PrivateNetwork(config.PSK))
     }
 
     // Create a libp2p Host instance
-    fmt.Println("Creating new p2p host")
+    log.Println("Creating new p2p host")
     node.Host, err = libp2p.New(node.Ctx, nodeOpts...)
     if err != nil {
         return node, err
@@ -187,7 +193,7 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
     if len(config.HandlerProtocolIDs) != len(config.StreamHandlers) {
         return node, errors.New("StreamHandlers and HandlerProtocolIDs must map one-to-one")
     }
-    fmt.Println("Setting stream handlers")
+    log.Println("Setting stream handlers")
     for i := range config.HandlerProtocolIDs {
         if config.HandlerProtocolIDs[i] != "" && config.StreamHandlers[i] != nil {
             node.Host.SetStreamHandler(config.HandlerProtocolIDs[i], config.StreamHandlers[i])
@@ -197,7 +203,7 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
     }
 
     // Create a libp2p DHT instance
-    fmt.Println("Creating DHT")
+    log.Println("Creating DHT")
     node.DHT, err = dht.New(node.Ctx, node.Host)
     if err != nil {
         return node, err
@@ -226,7 +232,7 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
 
             bootstrapAttempts++
 
-            fmt.Println("Connecting to bootstrap nodes...")
+            log.Println("Connecting to bootstrap nodes...")
             var wg sync.WaitGroup
             for _, peerAddr := range config.BootstrapPeers {
                 peerinfo, err := peer.AddrInfoFromP2pAddr(peerAddr)
@@ -238,9 +244,9 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
                 go func(addr peer.AddrInfo) {
                     defer wg.Done()
                     if err := node.Host.Connect(node.Ctx, addr); err != nil {
-                        fmt.Println(err)
+                        log.Println(err)
                     } else {
-                        fmt.Println("Connected to bootstrap node:", addr)
+                        log.Println("Connected to bootstrap node:", addr)
                     }
                 }(*peerinfo)
             }
@@ -258,9 +264,9 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
             return node, errors.New("Failed to connect to any bootstraps")
         }
 
-        fmt.Println("Connected to", numConnected, "peers!")
+        log.Println("Connected to", numConnected, "peers!")
     } else {
-        fmt.Println("No bootstraps provided, not connecting to any peers")
+        log.Println("No bootstraps provided, not connecting to any peers")
     }
 
     if err = node.DHT.Bootstrap(node.Ctx); err != nil {
@@ -277,7 +283,7 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
     node.Host.Network().Notify(node.NetworkCallbacks)
 
     // Create a libp2p Routing Discovery instance
-    fmt.Println("Creating Routing Discovery")
+    log.Println("Creating Routing Discovery")
     node.RoutingDiscovery = discovery.NewRoutingDiscovery(node.DHT)
     for _, rendezvous := range config.Rendezvous {
         if rendezvous != "" {
@@ -288,7 +294,7 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
     }
 
     // node initialization finished
-    fmt.Println("Finished setting up libp2p Node with PID", node.Host.ID(),
+    log.Println("Finished setting up libp2p Node with PID", node.Host.ID(),
                 "and Multiaddresses", node.Host.Addrs())
     return node, nil
 }
