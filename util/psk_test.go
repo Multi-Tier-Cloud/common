@@ -16,7 +16,7 @@ package util_test
 
 import (
 	//"flag"
-	//"os"
+	"os"
 	"reflect"
 	"testing"
 
@@ -28,7 +28,7 @@ var (
 )
 
 /*  Keeping this here for manual testing purposes
- *  This custom TestMain enables users to pass the -bootstrap flags when
+ *  This custom TestMain enables users to pass the -psk flag when
  *  running the test. E.g.
  *      go test -psk <pre-shared-key-passphrase>
  */
@@ -44,7 +44,6 @@ var (
 //}
 
 func TestAddPSKFlag(test *testing.T) {
-	// Test calling AddBootstrapFlags() multiple times
 	psk, err := util.AddPSKFlag()
 	if err != nil {
 		test.Fatalf("ERROR: Unable to add PSK flag")
@@ -105,5 +104,43 @@ func TestPSKSetString(test *testing.T) {
 	if len(printTest) != util.PSK_NUM_BYTES {
 		test.Fatalf("ERROR: Expected PSK String() to return a 32-character value, "+
 			"but it returned a %d characters instead.\n", len(printTest))
+	}
+}
+
+func TestGetEnvPSK(test *testing.T) {
+	// Set the environment variable, then call GetEnvPSK()
+	fakeEnvVal := "\t  helloWorldPassphrase     \r\n\t "
+
+	err := os.Setenv(util.ENV_KEY_PSK, fakeEnvVal)
+	if err != nil {
+		test.Fatalf("ERROR: Unable to set environment variable %s\n", util.ENV_KEY_PSK)
+	}
+
+	psk, err := util.GetEnvPSK()
+	if err != nil {
+		test.Fatalf("ERROR: Case with environment variable set, "+
+			"GetEnvPSK() failed with error:\n%v\n", err)
+	}
+
+	if len(psk) != util.PSK_NUM_BYTES {
+		test.Errorf("ERROR: GetEnvPSK() returned a key with length %d. "+
+			"Expected the length to be %d\n", len(psk), util.PSK_NUM_BYTES)
+	}
+
+	// Unset environment variable and re-test
+	err = os.Unsetenv(util.ENV_KEY_PSK)
+	if err != nil {
+		test.Fatalf("ERROR: Unable to unset environment variable %s\n", util.ENV_KEY_PSK)
+	}
+
+	psk, err = util.GetEnvPSK()
+	if err != nil {
+		test.Fatalf("ERROR: Case with no environment variable set, "+
+			"GetEnvPSK() failed with error:\n%v\n", err)
+	}
+
+	if len(psk) != 0 {
+		test.Errorf("ERROR: GetEnvPSK() returned a key with length %d. Expected "+
+			"length 0 since no environment variable was set\n", len(psk))
 	}
 }
