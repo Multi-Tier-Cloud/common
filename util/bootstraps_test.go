@@ -16,7 +16,8 @@ package util_test
 
 import (
 	//"flag"
-	//"os"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/Multi-Tier-Cloud/common/util"
@@ -109,5 +110,45 @@ func TestBootstrapSetString(test *testing.T) {
 	if len(printTest) <= 2 {
 		test.Fatalf("ERROR: Expected String() to print the list of bootstrap nodes set."+
 			"Received a string length of (%d), was expected > 2.", len(printTest))
+	}
+}
+
+func TestGetEnvBootstraps(test *testing.T) {
+	// Set the environment variable, then call GetEnvBootstraps()
+	fakeEnvVal := "\t  /ip4/10.11.69.5/tcp/36277/p2p/QmPqv37ukZLuVKfz5vBaH5KyMR9FCo8FuaRpXg7aKwcsgN\t\n\r   " +
+		"/ip4/10.11.69.20/tcp/40863/p2p/Qmaq76Lt4oEiYEbkxwCb6CgKbbp9qw5eWTexsrm84D2hJW\t\t\r\n "
+	fakeEnvLength := len(strings.Fields(fakeEnvVal))
+
+	err := os.Setenv(util.ENV_KEY_BOOTSTRAPS, fakeEnvVal)
+	if err != nil {
+		test.Fatalf("ERROR: Unable to set environment variable %s\n", util.ENV_KEY_BOOTSTRAPS)
+	}
+
+	bootstraps, err := util.GetEnvBootstraps()
+	if err != nil {
+		test.Fatalf("ERROR: Case with environment variable set, "+
+			"GetEnvBootstraps() failed with error:\n%v\n", err)
+	}
+
+	if len(bootstraps) != fakeEnvLength {
+		test.Errorf("ERROR: GetEnvBootstraps() returned %d addresses. Expected "+
+			"it to return %d instead\n", len(bootstraps), fakeEnvLength)
+	}
+
+	// Unset environment variable and re-test
+	err = os.Unsetenv(util.ENV_KEY_BOOTSTRAPS)
+	if err != nil {
+		test.Fatalf("ERROR: Unable to unset environment variable %s\n", util.ENV_KEY_BOOTSTRAPS)
+	}
+
+	bootstraps, err = util.GetEnvBootstraps()
+	if err != nil {
+		test.Fatalf("ERROR: Case with no environment variable set, "+
+			"GetEnvBootstraps() failed with error:\n%v\n", err)
+	}
+
+	if len(bootstraps) != 0 {
+		test.Errorf("ERROR: GetEnvBootstraps() returned %d addresses. Expected "+
+			"none since no environment variable was set\n", len(bootstraps))
 	}
 }
