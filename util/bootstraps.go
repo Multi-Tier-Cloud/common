@@ -74,7 +74,10 @@ func AddBootstrapFlags() (*[]multiaddr.Multiaddr, error) {
 	if !bootstrapsFlagLoaded {
 		flag.Var(&bootstraps, "bootstrap",
 			"Multiaddress of a bootstrap node.\n"+
-				"This flag can be specified multiple times.")
+				"This flag can be specified multiple times.\n"+
+				fmt.Sprintf("Alternatively, an environment variable named %s can\n"+
+					"be set with a space-separated list of bootstrap multiaddresses.",
+					ENV_KEY_BOOTSTRAPS))
 
 		bootstrapsFlagLoaded = true
 	}

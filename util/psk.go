@@ -110,7 +110,9 @@ func AddPSKFlag() (*pnet.PSK, error) {
 				"stored in memory. It is HIGHLY RECOMMENDED you use a passphrase you\n"+
 				"can easily memorize, or write it down somewhere safe. If you forget\n"+
 				"the passphrase, you will be unable to join new nodes/services to\n"+
-				"the same network.")
+				"the same network.\n"+
+				fmt.Sprintf("Alternatively, an environment variable named %s can\n"+
+					"be set with the passphrase.", ENV_KEY_PSK))
 
 		pskFlagLoaded = true
 	}
