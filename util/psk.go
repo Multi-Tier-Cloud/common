@@ -133,7 +133,7 @@ func GetPSKPointer() *pskValue {
 func GetEnvPSK() (pnet.PSK, error) {
 	envStr := os.Getenv(ENV_KEY_PSK)
 	if envStr == "" {
-		return pnet.PSK{}, nil
+		return nil, nil
 	}
 
 	pnetPsk, err := CreatePSK(envStr)
@@ -141,7 +141,7 @@ func GetEnvPSK() (pnet.PSK, error) {
 		err = fmt.Errorf("ERROR: Unable to parse environment variable %s.\n%w",
 			ENV_KEY_PSK, err)
 
-		return pnet.PSK{}, err
+		return nil, err
 	}
 
 	return pnetPsk, nil

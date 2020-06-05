@@ -91,7 +91,7 @@ func AddBootstrapFlags() (*[]multiaddr.Multiaddr, error) {
 func GetEnvBootstraps() ([]multiaddr.Multiaddr, error) {
 	envStr := os.Getenv(ENV_KEY_BOOTSTRAPS)
 	if envStr == "" {
-		return []multiaddr.Multiaddr{}, nil
+		return nil, nil
 	}
 
 	bootstraps, err := StringsToMultiaddrs(strings.Fields(envStr))
@@ -99,7 +99,7 @@ func GetEnvBootstraps() ([]multiaddr.Multiaddr, error) {
 		err = fmt.Errorf("ERROR: Unable to parse environment variable %s.\n%w",
 			ENV_KEY_BOOTSTRAPS, err)
 
-		return []multiaddr.Multiaddr{}, err
+		return nil, err
 	}
 
 	return bootstraps, nil
