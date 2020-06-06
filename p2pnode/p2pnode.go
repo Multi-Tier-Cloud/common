@@ -64,6 +64,7 @@ func NewConfig() Config {
 // for a node instance
 type Node struct {
     Ctx                context.Context
+    Close              context.CancelFunc
     Host               host.Host
     DHT                *dht.IpfsDHT
     RoutingDiscovery   *discovery.RoutingDiscovery
@@ -94,6 +95,11 @@ func ReconnectCB(ctx context.Context, p2pHost host.Host,
         vipPeers []multiaddr.Multiaddr) func(network.Network, network.Conn) {
 
     return func(net network.Network, conn network.Conn) {
+        // If the context has been cancelled, we should not try to reconnect
+        if ctx.Err() != nil {
+            return
+        }
+
         var err error
         var addrInfo *peer.AddrInfo
         isBootstrap := false
@@ -132,6 +138,11 @@ func ReconnectCB(ctx context.Context, p2pHost host.Host,
 				for i := 0; i < sleepDuration; i++ {
                     fmt.Printf("\rRetrying again in %d seconds...     ", sleepDuration - i)
                     time.Sleep(time.Second)
+
+                    // Check if context has been cancelled, abort attempts
+                    if ctx.Err() != nil {
+                        return
+                    }
                 }
                 fmt.Println()
             }
@@ -158,7 +169,7 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
     // Populate new node instance
     var node Node
 
-    node.Ctx = ctx
+    node.Ctx, node.Close = context.WithCancel(ctx)
     nodeOpts := []libp2p.Option{}
 
     // Set private key (for identity) if it exists
