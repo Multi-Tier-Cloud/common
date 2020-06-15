@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package util_test
 
 import (
@@ -99,11 +100,26 @@ func TestPSKSetString(test *testing.T) {
 			"is called twice with the same psk passphrase, but they differed.\n")
 	}
 
-	// Test printing works
-	printTest := psk.String()
-	if len(printTest) != util.PSK_NUM_BYTES {
+	// Test to ensure original passphrase is retrievable
+	if util.GetFlagPSKString() != testPassphrase {
+		test.Errorf("ERROR: GetFlagPSKString() returned a passphrase that " +
+			"differs from the original passphrase\n")
+	}
+
+	// Test to ensure hashed PSK is the correct length
+	hPsk, err := util.AddPSKFlag()
+	if err != nil {
+		test.Fatalf("ERROR: Unable to add PSK flag")
+	}
+	if len(*hPsk) != util.PSK_NUM_BYTES {
 		test.Fatalf("ERROR: Expected PSK String() to return a 32-character value, "+
-			"but it returned a %d characters instead.\n", len(printTest))
+			"but it returned a %d characters instead.\n", len(*hPsk))
+	}
+
+	// Test printing works and ensure it matches original passphrase
+	printTest := psk.String()
+	if printTest != testPassphrase {
+		test.Errorf("ERROR: Expected GetPSKString() to return the original passphrase\n")
 	}
 }
 
@@ -125,6 +141,12 @@ func TestGetEnvPSK(test *testing.T) {
 	if len(psk) != util.PSK_NUM_BYTES {
 		test.Errorf("ERROR: GetEnvPSK() returned a key with length %d. "+
 			"Expected the length to be %d\n", len(psk), util.PSK_NUM_BYTES)
+	}
+
+	// Test to ensure original passphrase is retrievable
+	if util.GetEnvPSKString() != fakeEnvVal {
+		test.Errorf("ERROR: GetEnvPSKString() returned a passphrase that " +
+			"differs from the original passphrase\n")
 	}
 
 	// Unset environment variable and re-test

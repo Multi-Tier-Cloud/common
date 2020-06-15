@@ -12,6 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package util
 
 import (
@@ -27,7 +28,10 @@ import (
 // Need to define custom type to implement flag's Value interface.
 // Don't want to expose it outside the package as it'll be redundant and
 // possibly reduce readability and comprehension of the underlying type.
-type pskValue pnet.PSK
+type pskValue struct {
+	hPsk pnet.PSK // Hashed 32-byte PSK usable by libp2p
+	sPsk string   // Original un-hashed passphrase
+}
 
 const (
 	// libp2p's PSK definition is a slice of 32 bytes
@@ -37,7 +41,7 @@ const (
 )
 
 var (
-	// Stores the bootstrap multiaddrs
+	// Stores the PSK (both hashed and original string format)
 	psk pskValue
 
 	// Used to avoid re-defining 'psk' if AddPSKFlag() is
@@ -77,27 +81,29 @@ func CreatePSK(psk string) (pnet.PSK, error) {
 	return digest[:], nil
 }
 
+// Returns the last string used when Set() was called
 func (pskVal *pskValue) String() string {
-	return string(*pskVal)
+	return pskVal.sPsk
 }
 
+// Note that the values of sPsk and pskVal will be altered on each call
 func (pskVal *pskValue) Set(s string) error {
 	var err error
-	var pnetPsk pnet.PSK
 	if s == "" {
-		pnetPsk, err = CreateRandPSK()
+		pskVal.hPsk, err = CreateRandPSK()
 		if err != nil {
 			return fmt.Errorf("Unable to create random PSK\n%w", err)
 		}
 	} else {
-		pnetPsk, err = CreatePSK(s)
+		pskVal.hPsk, err = CreatePSK(s)
 		if err != nil {
 			return fmt.Errorf("Unable to create PSK from \"%s\"\n%w", s, err)
 		}
 	}
 
-	// Cast and return
-	*pskVal = (pskValue)(pnetPsk)
+	// Save the original string passphrase
+	pskVal.sPsk = s
+
 	return nil
 }
 
@@ -106,11 +112,10 @@ func AddPSKFlag() (*pnet.PSK, error) {
 	if !pskFlagLoaded {
 		flag.Var(&psk, "psk",
 			"Passphrase used to create a pre-shared key (PSK) used amongst nodes\n"+
-				"to form a private network. The passphrase provided here will not be\n"+
-				"stored in memory. It is HIGHLY RECOMMENDED you use a passphrase you\n"+
-				"can easily memorize, or write it down somewhere safe. If you forget\n"+
-				"the passphrase, you will be unable to join new nodes/services to\n"+
-				"the same network.\n"+
+				"to form a private network. It is HIGHLY RECOMMENDED you use a\n"+
+				"passphrase you can easily memorize, or write it down somewhere safe.\n"+
+				"If you forget the passphrase, you will be unable to join new nodes\n"+
+				"and services to the same network.\n"+
 				fmt.Sprintf("Alternatively, an environment variable named %s can\n"+
 					"be set with the passphrase.", ENV_KEY_PSK))
 
@@ -118,7 +123,7 @@ func AddPSKFlag() (*pnet.PSK, error) {
 	}
 
 	// Cast and return
-	return (*pnet.PSK)(&psk), nil
+	return &psk.hPsk, nil
 }
 
 // For enabling tests, ideally should not be used.
@@ -131,7 +136,7 @@ func GetPSKPointer() *pskValue {
 // If the environment variable does not exist, or if there are errors during
 // parsing, return the 0-value of the return type.
 func GetEnvPSK() (pnet.PSK, error) {
-	envStr := os.Getenv(ENV_KEY_PSK)
+	envStr := GetEnvPSKString()
 	if envStr == "" {
 		return nil, nil
 	}
@@ -145,4 +150,15 @@ func GetEnvPSK() (pnet.PSK, error) {
 	}
 
 	return pnetPsk, nil
+}
+
+// Returns un-hashed PSK passphrase specified in environment variable
+func GetEnvPSKString() string {
+	return os.Getenv(ENV_KEY_PSK)
+}
+
+// Returns the un-hashed PSK passphrase of the PSK from the
+// last time Get() was called.
+func GetFlagPSKString() string {
+	return psk.sPsk
 }

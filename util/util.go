@@ -12,12 +12,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package util
 
 import (
 	"net"
 	"os"
 	"strings"
+
+	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 
 	"github.com/multiformats/go-multiaddr"
 )
@@ -91,4 +95,18 @@ func StringsToMultiaddrs(stringMultiaddrs []string) ([]multiaddr.Multiaddr, erro
 	}
 
 	return multiaddrs, nil
+}
+
+// Return identifying multiaddrs of the given node
+func Whoami(node host.Host) ([]multiaddr.Multiaddr, error) {
+	peerInfo := peer.AddrInfo{
+		ID:    node.ID(),
+		Addrs: node.Addrs(),
+	}
+	addrs, err := peer.AddrInfoToP2pAddrs(&peerInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	return addrs, nil
 }
