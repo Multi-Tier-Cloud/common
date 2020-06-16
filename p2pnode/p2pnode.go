@@ -79,31 +79,37 @@ const (
 )
 
 func (node *Node) Advertise(rendezvous string) error {
-    if rendezvous != "" {
-        discovery.Advertise(node.Ctx, node.RoutingDiscovery, rendezvous)
-    } else {
+    if rendezvous == "" {
+        log.Printf("ERROR: Empty rendezvous string")
         return errors.New("Cannot have empty Rendezvous string")
+    } else if node.RoutingDiscovery == nil {
+        log.Printf("ERROR: RoutingDiscovery does not exist")
+        return errors.New("No Discovery object available to advertise from")
     }
+
+    discovery.Advertise(node.Ctx, node.RoutingDiscovery, rendezvous)
+
     return nil
 }
 
-// Given a set of high-value peers, always try to reconnect to them if they
-// are disconnected.
-//
 // Returns a callback function for peer disconnection events
-func ReconnectCB(ctx context.Context, p2pHost host.Host,
-        vipPeers []multiaddr.Multiaddr) func(network.Network, network.Conn) {
+//
+// Given the Node and the original Config used to create it, always try to
+// maintain its connectivity to the original bootstraps (i.e. reconnect to
+// them if they are disconnected. Upon reconnection, re-advertise any
+// services and/or content.
+func ReconnectCB(node *Node, cfg *Config) func(network.Network, network.Conn) {
 
     return func(net network.Network, conn network.Conn) {
         // If the context has been cancelled, we should not try to reconnect
-        if ctx.Err() != nil {
+        if node.Ctx.Err() != nil {
             return
         }
 
         var err error
         var addrInfo *peer.AddrInfo
         isBootstrap := false
-        for _, peerAddr := range vipPeers {
+        for _, peerAddr := range cfg.BootstrapPeers {
             addrInfo, err = peer.AddrInfoFromP2pAddr(peerAddr)
             if err != nil {
                 log.Printf("ERROR: Unable to parse AddrInfo from %s\n%w\n", peerAddr, err)
@@ -128,7 +134,6 @@ func ReconnectCB(ctx context.Context, p2pHost host.Host,
         connAttempts := 0
         sleepDuration := 0
 
-        //for numConnected == 0 && bootstrapAttempts < MaxConnAttempts {
         for net.Connectedness(conn.RemotePeer()) != network.Connected {
             // Perform simple exponential backoff
             // TODO: Move this to helper function
@@ -140,14 +145,14 @@ func ReconnectCB(ctx context.Context, p2pHost host.Host,
                     time.Sleep(time.Second)
 
                     // Check if context has been cancelled, abort attempts
-                    if ctx.Err() != nil {
+                    if node.Ctx.Err() != nil {
                         return
                     }
                 }
                 fmt.Println()
             }
 
-            if err := p2pHost.Connect(ctx, *addrInfo); err != nil {
+            if err := node.Host.Connect(node.Ctx, *addrInfo); err != nil {
                 log.Println(err)
             } else {
                 log.Println("Reconnected to node:", addrInfo)
@@ -158,6 +163,11 @@ func ReconnectCB(ctx context.Context, p2pHost host.Host,
             if sleepDuration < MaxBackoffSecs {
                 connAttempts++
             }
+        }
+
+        // Re-advertise any rendezvous srings
+        for _, r := range cfg.Rendezvous {
+            node.Advertise(r)
         }
     }
 }
@@ -215,7 +225,7 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
 
     // Create a libp2p DHT instance
     log.Println("Creating DHT")
-    node.DHT, err = dht.New(node.Ctx, node.Host)
+    node.DHT, err = dht.New(node.Ctx, node.Host, dht.Mode(dht.ModeServer))
     if err != nil {
         return node, err
     }
@@ -289,7 +299,7 @@ func NewNode(ctx context.Context, config Config) (Node, error) {
     // Users can override or add any other callbacks they want, either
     // directly to the NotifyBundle created here, or register their own.
     netCBs := network.NotifyBundle{}
-    netCBs.DisconnectedF = ReconnectCB(node.Ctx, node.Host, config.BootstrapPeers)
+    netCBs.DisconnectedF = ReconnectCB(&node, &config)
     node.NetworkCallbacks = &netCBs
     node.Host.Network().Notify(node.NetworkCallbacks)
 
