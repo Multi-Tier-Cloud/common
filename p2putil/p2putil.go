@@ -35,18 +35,25 @@ type PerfInd struct {
 
 // PeerInfo holds information relative peer performance and contact information
 type PeerInfo struct {
-    Perf PerfInd
-    ID   peer.ID
+    ID          peer.ID
+    Perf        PerfInd
+    ServName    string
+    ServHash    string
 }
 
-// Compares whether l performance is better than r performance
-func (l PerfInd) Compare(r PerfInd) bool {
+// Compares whether l performance is less than r performance
+// TODO: Figure out how to handle comparison if PerfInd contains more
+//       than a single metric
+func (l PerfInd) LessThan(r PerfInd) bool {
     return l.RTT < r.RTT
 }
 
-// Alternative version of Compare
-func PerfIndCompare(l, r PerfInd) bool {
-    return l.Compare(r)
+func (l PerfInd) GreaterThan(r PerfInd) bool {
+    return l.RTT > r.RTT
+}
+
+func (l PerfInd) Equal(r PerfInd) bool {
+    return l.RTT == r.RTT
 }
 
 // Get performance indicators and return sorted peers based on it
@@ -70,7 +77,7 @@ func SortPeers(peerChan <-chan peer.AddrInfo, node p2pnode.Node) []PeerInfo {
     cancel()
 
     sort.Slice(peers, func(i, j int) bool {
-        return PerfIndCompare(peers[i].Perf, peers[j].Perf)
+        return peers[i].Perf.LessThan(peers[j].Perf)
     })
 
     return peers
