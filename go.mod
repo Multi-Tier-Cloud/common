@@ -1,4 +1,4 @@
-module github.com/Multi-Tier-Cloud/common
+module github.com/PhysarumSM/common
 
 go 1.13
 
